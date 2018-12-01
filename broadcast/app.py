@@ -1,9 +1,23 @@
 import asyncio
 import json
+import logging
+# import sys
 
 import aio_pika
 
 from broadcast import settings
+
+
+log = logging.getLogger('main')
+
+
+def setup_logger():
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(name)s: %(message)s',
+        filename='broadcast.log',
+        # stream=sys.stdout
+    )
 
 
 async def send(channel, out_queue, message):
@@ -13,11 +27,28 @@ async def send(channel, out_queue, message):
         routing_key=out_queue)
 
 
+async def comparator_message(message):
+    j = json.loads(message)
+    j['target'] = 'COMPARATOR'
+    out_message = json.dumps(j)
+    return out_message
+
+
+async def etalon_message(message):
+    j = json.loads(message)
+    j['target'] = 'ETALON'
+    out_message = json.dumps(j)
+    return out_message
+
+
 async def create_out_message_for_app(app, message):
     # create outgoing message for specific app
-    out_message = json.loads(message)
-    out_message['target'] = app
-    return json.dumps(out_message)
+    if app == 'COMPARATOR':
+        return await comparator_message(message)
+    elif app == 'ETALON':
+        return await etalon_message(message)
+
+    return message
 
 
 async def generate_out_messages(message):
@@ -48,15 +79,11 @@ async def broadcast(in_queue, out_queues, loop):
 
             # create incoming queue
             queue = await channel.declare_queue(in_queue)
-            print(f'receiver: {in_queue}')
 
             # read messages from in_queue
             async for message in queue:
                 with message.process():
-                    print(message.body)
-
                     await save_message_to_db(message.body)
-
                     out_messages = await generate_out_messages(message.body)
                     for out_q, msg in out_messages.items():
                         await send(channel, out_q, msg)
@@ -66,6 +93,7 @@ async def broadcast(in_queue, out_queues, loop):
 
 
 def main():
+    setup_logger()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(
         broadcast(settings.IN_QUEUE, settings.OUT_QUEUES, loop))
