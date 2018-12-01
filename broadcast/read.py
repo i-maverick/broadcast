@@ -1,7 +1,7 @@
 import pika
 from broadcast import settings
 
-queue = settings.OUT_QUEUES[0]
+queue = settings.OUT_QUEUES[1]
 
 connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
 channel = connection.channel()
