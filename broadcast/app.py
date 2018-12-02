@@ -27,35 +27,34 @@ async def send(channel, out_queue, message):
         routing_key=out_queue)
 
 
-async def comparator_message(message):
+def comparator_message(message):
     j = json.loads(message)
     j['target'] = 'COMPARATOR'
     out_message = json.dumps(j)
     return out_message
 
 
-async def etalon_message(message):
+def etalon_message(message):
     j = json.loads(message)
     j['target'] = 'ETALON'
     out_message = json.dumps(j)
     return out_message
 
 
-async def create_out_message_for_app(app, message):
+def create_out_message_for_app(app, message):
     # create outgoing message for specific app
     if app == 'COMPARATOR':
-        return await comparator_message(message)
+        return comparator_message(message)
     elif app == 'ETALON':
-        return await etalon_message(message)
-
+        return etalon_message(message)
     return message
 
 
-async def generate_out_messages(message):
+def generate_out_messages(message):
     # generate output messages for different queues
     out_messages = dict()
     for app in settings.OUT_QUEUES:
-        out_message = await create_out_message_for_app(app, message)
+        out_message = create_out_message_for_app(app, message)
         out_queue = settings.OUT_QUEUES[app]
         out_messages[out_queue] = out_message
     return out_messages
@@ -84,7 +83,7 @@ async def broadcast(in_queue, out_queues, loop):
             async for message in queue:
                 with message.process():
                     await save_message_to_db(message.body)
-                    out_messages = await generate_out_messages(message.body)
+                    out_messages = generate_out_messages(message.body)
                     for out_q, msg in out_messages.items():
                         await send(channel, out_q, msg)
 
