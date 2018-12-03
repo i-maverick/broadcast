@@ -1,4 +1,6 @@
 import json
+import logging
+import sys
 import pika
 from broadcast import settings
 
@@ -42,7 +44,10 @@ class Singleton(type):
 
 class Publisher(metaclass=Singleton):
     def __init__(self):
-        print('Creating MQ connection...')
+        self.log = logging.getLogger(__name__)
+        self.setup_logger()
+
+        self.log.debug('Creating MQ connection...')
         self.connection = pika.BlockingConnection(
             pika.ConnectionParameters())
         self.channel = self.connection.channel()
@@ -61,18 +66,28 @@ class Publisher(metaclass=Singleton):
                 self.channel.queue_bind(
                     exchange=settings.EXCHANGE, queue=out_queue)
 
+    @staticmethod
+    def setup_logger():
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s %(levelname)-7s %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            stream=sys.stdout,
+            # filename=settings.LOG_FILE,
+        )
+
     def publish(self, message: str):
         for app, out_queue in settings.OUT_QUEUES.items():
 
             msg = create_out_message_for_app(app, message)
-            print(f'Sent message to {app}: {msg}')
+            self.log.debug(f'Sent message to {app}: {msg}')
 
             self.channel.basic_publish(
                 exchange='', routing_key=out_queue, body=msg)
 
     def broadcast(self, message: str):
         if settings.EXCHANGE:
-            print(f'Broadcast message: {message}')
+            self.log.debug(f'Broadcast message: {message}')
             self.channel.basic_publish(
                 exchange=settings.EXCHANGE, routing_key='', body=message)
         else:

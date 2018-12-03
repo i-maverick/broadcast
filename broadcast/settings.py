@@ -6,3 +6,4 @@ OUT_QUEUES = {
     'COMPARATOR': 'OUT_QUEUE_1',
     'ETALON': 'OUT_QUEUE_2',
 }
+LOG_FILE = 'publisher.log'
