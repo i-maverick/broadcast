@@ -72,23 +72,23 @@ async def broadcast(in_queue, out_queues, loop):
     async with connection:
         channel = await connection.channel()
 
+        # create incoming queue
+        queue = await channel.declare_queue(in_queue)
+
         # create outgoing queues
         for out_queue in out_queues.values():
             await channel.declare_queue(out_queue)
 
-            # create incoming queue
-            queue = await channel.declare_queue(in_queue)
+        # read messages from in_queue
+        async for message in queue:
+            with message.process():
+                await save_message_to_db(message.body)
+                out_messages = generate_out_messages(message.body)
+                for out_q, msg in out_messages.items():
+                    await send(channel, out_q, msg)
 
-            # read messages from in_queue
-            async for message in queue:
-                with message.process():
-                    await save_message_to_db(message.body)
-                    out_messages = generate_out_messages(message.body)
-                    for out_q, msg in out_messages.items():
-                        await send(channel, out_q, msg)
-
-                    if in_queue in message.body.decode():
-                        break
+                if in_queue in message.body.decode():
+                    break
 
 
 def main():
